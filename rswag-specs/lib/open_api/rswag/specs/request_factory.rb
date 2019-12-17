@@ -33,9 +33,23 @@ module OpenApi
 
           # NOTE: Use of + instead of concat to avoid mutation of the metadata object
           (operation_params + path_item_params + security_params)
-              .map { |p| p['$ref'] ? resolve_parameter(p['$ref'], swagger_doc) : p }
-              .uniq { |p| p[:name] }
-              .reject { |p| p[:required] == false && !example.respond_to?(p[:name]) }
+            .map { |p| referenced_parameter(p, swagger_doc) }
+            .uniq { |p| p[:name] }
+            .reject { |p| !example.respond_to?(p[:name]) }
+        end
+
+        # to be able to use either '$ref' => '...' or '$ref': ... syntax
+        def referenced_parameter(parameter, swagger_doc)
+          ref_key = '$ref'
+          param = if parameter.key?(ref_key)
+                    parameter.fetch(ref_key, nil)
+                  else
+                    parameter.fetch(ref_key.to_sym, nil)
+                  end
+
+          return parameter if param.nil?
+
+          resolve_parameter(param, swagger_doc)
         end
 
         def derive_security_params(metadata, swagger_doc)
